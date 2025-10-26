@@ -10,6 +10,13 @@ pip install -r requirements.txt
 python setup_db.py
 python app.py
 ```
+
+## Features
+- Manage products with add, edit, delete, and label-print actions.
+- Manage customers with add, edit, delete, and search tools.
+- Process barcode-driven sales workflows with cash checkout flow.
+- Role-based access control that restricts management screens to Admin/Manager.
+- ESC/POS receipt printing stub plus configurable printer profiles.
 ## PostgreSQL
 ```
 export DATABASE_URL="postgresql+psycopg://user:pass@host:5432/posdb"
@@ -46,3 +53,14 @@ Replace with `python-escpos` for real printers and update the device config ther
 - **Printer Profiles**: Devices → Printer Settings lets you create per-store/register profiles and set the active one.
 - **Zebra USB**: Set VID/PID in the Zebra section (hex like `0x0a5f`). Falls back to console if not found.
 - **Reports**: Tabs for Daily Summary, Category, Cashier, and Payment. Export CSV/PDF and save bar charts (matplotlib).
+
+## Screenshots
+Drop the provided images into `docs/images/` (or update the paths) to display them below.
+
+![Login dialog](docs/images/login.png)
+
+![Sales screen](docs/images/sales.png)
+
+![Customers screen](docs/images/customers.png)
+
+![Products screen](docs/images/products.png)
