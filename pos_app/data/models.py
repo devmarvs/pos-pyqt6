@@ -91,6 +91,7 @@ class Role(Base):
     __tablename__ = "roles"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    users = relationship("User", back_populates="role")
 
 class User(Base):
     __tablename__ = "users"
@@ -99,6 +100,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role_id: Mapped[int | None] = mapped_column(ForeignKey("roles.id"))
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    role = relationship("Role", back_populates="users")
 
 class Permission(Base):
     __tablename__ = "permissions"
