@@ -46,7 +46,7 @@ class SalesPage(QWidget):
             self.barcode_in.clear()
     def finalize_sale(self):
         try:
-            grand_total = float(self.total_lbl.text().split(":")[1])
+            grand_total = self.recompute_total()
             self.service.finalize(self.sale, payment_amount=grand_total, payment_method="cash")
             try:
                 self.printer.print_receipt(self.sale, self.session)
@@ -56,6 +56,7 @@ class SalesPage(QWidget):
             self.items.clear(); self.total_lbl.setText("Total: 0.00")
             self.sale = Sale(discount_total=0.0); self.session.add(self.sale); self.session.commit(); self.session.refresh(self.sale)
         except Exception as e:
+            self.session.rollback()
             QMessageBox.warning(self, "Error", str(e))
 
 class MainWindow(QMainWindow):

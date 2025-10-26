@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 from pos_app.data.models import Product, Sale, SaleLine, Payment, Inventory
 
 class CompleteSaleService:
@@ -25,9 +26,13 @@ class CompleteSaleService:
         sale.status = "completed"
         sale.payment_status = "paid" if abs(payment_amount - grand_total) < 0.01 else "partial"
         self.db.add(Payment(sale=sale, method=payment_method, amount=payment_amount, status="captured"))
-        for l in sale.lines:
-            inv = self.db.query(Inventory).filter(Inventory.product_id == l.product_id).first()
-            if inv:
-                inv.qty_on_hand = float(inv.qty_on_hand) - float(l.qty)
-        self.db.commit()
+        try:
+            for l in sale.lines:
+                inv = self.db.query(Inventory).filter(Inventory.product_id == l.product_id).first()
+                if inv:
+                    inv.qty_on_hand = float(inv.qty_on_hand) - float(l.qty)
+            self.db.commit()
+        except SQLAlchemyError as exc:
+            self.db.rollback()
+            raise RuntimeError(f"Failed to finalize sale: {exc}") from exc
         return sale

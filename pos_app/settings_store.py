@@ -33,7 +33,10 @@ def load_settings() -> dict:
     return _deepmerge(DEFAULTS, data)
 
 def save_settings(data: dict):
-    Path(_SETTINGS_PATH).write_text(json.dumps(data, indent=2), encoding="utf-8")
+    try:
+        Path(_SETTINGS_PATH).write_text(json.dumps(data, indent=2), encoding="utf-8")
+    except OSError as exc:
+        raise RuntimeError(f"Unable to write settings file '{_SETTINGS_PATH}': {exc}") from exc
 
 def get_active_profile() -> dict:
     data = load_settings()

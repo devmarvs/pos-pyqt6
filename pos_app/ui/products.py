@@ -96,8 +96,16 @@ class ProductsPage(QWidget):
                     p.price = float(row.get("price") or 0)
                 except Exception:
                     p.price = 0
-                p.category_id = int(row.get("category_id") or 0) or None
-                p.tax_id = int(row.get("tax_id") or 0) or None
+                cat_raw = row.get("category_id")
+                tax_raw = row.get("tax_id")
+                try:
+                    p.category_id = int(cat_raw) if cat_raw else None
+                except (TypeError, ValueError):
+                    p.category_id = None
+                try:
+                    p.tax_id = int(tax_raw) if tax_raw else None
+                except (TypeError, ValueError):
+                    p.tax_id = None
                 p.active = (str(row.get("active") or "1").strip() in {"1","true","True","yes"})
             try:
                 self.session.commit(); self.refresh()
@@ -108,11 +116,11 @@ class ProductsPage(QWidget):
         pid = self._selected_product_id()
         if not pid:
             QMessageBox.information(self, "Select", "Select a product first."); return
-        from pos_app.integrations.printers.zpl import ZebraPrinter
         p = self.session.get(Product, pid)
         if not p or not p.barcode:
             QMessageBox.warning(self, "Missing", "Selected product has no barcode."); return
         try:
+            from pos_app.integrations.printers.zpl import ZebraPrinter
             ZebraPrinter().print_barcode_label(barcode=p.barcode, title=p.name[:30], copies=1)
             QMessageBox.information(self, "Label", "Label sent.")
         except Exception as e:

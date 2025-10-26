@@ -98,7 +98,9 @@ class PrinterSettingsDialog(QDialog):
             "escpos":{"mode":"network","host":"","port":9100,"usb_vid":0,"usb_pid":0},
             "zebra":{"mode":"network","host":"","port":9100,"usb_vid":0,"usb_pid":0}
         }
-        save_settings(self.data)
+        if not self._persist_settings():
+            self.data.get("profiles", {}).pop(name, None)
+            return
         self.list.addItem(name)
         self.list.setCurrentRow(self.list.count()-1)
 
@@ -107,8 +109,11 @@ class PrinterSettingsDialog(QDialog):
         if not name: return
         if name == self.data.get("active_profile"):
             QMessageBox.warning(self, "Active profile", "Cannot delete the active profile."); return
-        self.data.get("profiles", {}).pop(name, None)
-        save_settings(self.data)
+        removed = self.data.get("profiles", {}).pop(name, None)
+        if not self._persist_settings():
+            if removed is not None:
+                self.data.setdefault("profiles", {})[name] = removed
+            return
         row = self.list.currentRow()
         self.list.takeItem(row)
 
@@ -116,16 +121,20 @@ class PrinterSettingsDialog(QDialog):
         name = self._current_name()
         if not name: return
         self.data["active_profile"] = name
-        save_settings(self.data)
-        QMessageBox.information(self, "Active profile", f"Active profile set to: {name}")
+        if self._persist_settings():
+            QMessageBox.information(self, "Active profile", f"Active profile set to: {name}")
 
     def _save_changes(self):
         name = self._current_name()
         if not name: return
-        esc_vid = int(self.esc_vid.text(), 16) if self.esc_vid.text() else 0
-        esc_pid = int(self.esc_pid.text(), 16) if self.esc_pid.text() else 0
-        z_vid = int(self.z_vid.text(), 16) if self.z_vid.text() else 0
-        z_pid = int(self.z_pid.text(), 16) if self.z_pid.text() else 0
+        try:
+            esc_vid = int(self.esc_vid.text(), 16) if self.esc_vid.text() else 0
+            esc_pid = int(self.esc_pid.text(), 16) if self.esc_pid.text() else 0
+            z_vid = int(self.z_vid.text(), 16) if self.z_vid.text() else 0
+            z_pid = int(self.z_pid.text(), 16) if self.z_pid.text() else 0
+        except ValueError as exc:
+            QMessageBox.warning(self, "Invalid input", f"USB VID/PID must be hexadecimal values.\n\nDetails: {exc}")
+            return
         self.data["profiles"][name] = {
             "store": self.store.text().strip(),
             "register": self.register.text().strip(),
@@ -144,5 +153,13 @@ class PrinterSettingsDialog(QDialog):
                 "usb_pid": z_pid
             }
         }
-        save_settings(self.data)
-        QMessageBox.information(self, "Saved", "Profile saved.")
+        if self._persist_settings():
+            QMessageBox.information(self, "Saved", "Profile saved.")
+
+    def _persist_settings(self) -> bool:
+        try:
+            save_settings(self.data)
+            return True
+        except Exception as exc:
+            QMessageBox.critical(self, "Settings", f"Failed to save settings: {exc}")
+            return False

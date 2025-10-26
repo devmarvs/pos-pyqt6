@@ -1,6 +1,6 @@
 
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton, 
-                             QTableWidget, QTableWidgetItem, QFileDialog, QMessageBox, QTabWidget, 
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, QDateEdit, QPushButton,
+                             QTableWidget, QTableWidgetItem, QFileDialog, QMessageBox, QTabWidget,
                              QSizePolicy)
 from PyQt6.QtCore import QDate
 from sqlalchemy.orm import Session
@@ -12,7 +12,8 @@ from weasyprint import HTML
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import os, uuid
+import uuid, tempfile
+from pathlib import Path
 
 REPORT_TEMPLATE = """
 <!doctype html><html><head><meta charset="utf-8"><title>Sales Report</title>
@@ -31,10 +32,13 @@ def save_bar_chart(labels, values, title):
     ax.set_title(title)
     ax.set_ylabel("Total")
     fig.tight_layout()
-    path = f"/mnt/data/{uuid.uuid4().hex}.png"
-    fig.savefig(path)
-    plt.close(fig)
-    return path
+    out_dir = Path(tempfile.gettempdir())
+    path = out_dir / f"pos_chart_{uuid.uuid4().hex}.png"
+    try:
+        fig.savefig(path)
+    finally:
+        plt.close(fig)
+    return str(path)
 
 class ReportsPage(QWidget):
     def __init__(self, session_maker):
@@ -192,12 +196,15 @@ class ReportsPage(QWidget):
         if not path: return
         rows, totals = self._summary_rows()
         import csv
-        with open(path, "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(["Date","Sales","Subtotal","Tax","Total"])
-            for r in rows:
-                w.writerow([r["date"], r["count"], f"{r['subtotal']:.2f}", f"{r['tax']:.2f}", f"{r['total']:.2f}"])
-            w.writerow([]); w.writerow(["TOTALS", totals["count"], f"{totals['subtotal']:.2f}", f"{totals['tax']:.2f}", f"{totals['total']:.2f}"])
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["Date","Sales","Subtotal","Tax","Total"])
+                for r in rows:
+                    w.writerow([r["date"], r["count"], f"{r['subtotal']:.2f}", f"{r['tax']:.2f}", f"{r['total']:.2f}"])
+                w.writerow([]); w.writerow(["TOTALS", totals["count"], f"{totals['subtotal']:.2f}", f"{totals['tax']:.2f}", f"{totals['total']:.2f}"])
+        except OSError as exc:
+            QMessageBox.critical(self, "Export error", f"Could not write CSV file.\n\nDetails: {exc}")
 
     def export_pdf(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save PDF", "sales_summary.pdf", "PDF Files (*.pdf)")
@@ -206,22 +213,32 @@ class ReportsPage(QWidget):
         html = Environment(loader=BaseLoader()).from_string(REPORT_TEMPLATE).render(
             rows=rows, totals=totals, start=self.start.date().toString("yyyy-MM-dd"), end=self.end.date().toString("yyyy-MM-dd")
         )
-        HTML(string=html).write_pdf(path)
+        try:
+            HTML(string=html).write_pdf(path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Export error", f"Failed to generate PDF.\n\nDetails: {exc}")
 
     def _export_kv_csv(self, rows, default_name):
         path, _ = QFileDialog.getSaveFileName(self, "Save CSV", default_name, "CSV Files (*.csv)")
         if not path: return
         import csv
-        with open(path, "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(["Key","Total"])
-            for k, v in rows:
-                w.writerow([k, f"{v:.2f}"])
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                w = csv.writer(f)
+                w.writerow(["Key","Total"])
+                for k, v in rows:
+                    w.writerow([k, f"{v:.2f}"])
+        except OSError as exc:
+            QMessageBox.critical(self, "Export error", f"Could not write CSV file.\n\nDetails: {exc}")
 
     def _show_chart(self, rows, title):
         labels = [k for k,_ in rows]
         values = [v for _,v in rows]
         if not labels: 
             QMessageBox.information(self, "No data", "Nothing to chart for this range."); return
-        path = save_bar_chart(labels, values, title)
+        try:
+            path = save_bar_chart(labels, values, title)
+        except Exception as exc:
+            QMessageBox.critical(self, "Chart error", f"Failed to create chart.\n\nDetails: {exc}")
+            return
         QMessageBox.information(self, "Chart saved", f"Chart saved to: {path}")
