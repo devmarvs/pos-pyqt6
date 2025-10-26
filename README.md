@@ -55,7 +55,6 @@ Replace with `python-escpos` for real printers and update the device config ther
 - **Reports**: Tabs for Daily Summary, Category, Cashier, and Payment. Export CSV/PDF and save bar charts (matplotlib).
 
 ## Screenshots
-Drop the provided images into `docs/images/` (or update the paths) to display them below.
 
 ![Login dialog](docs/images/login.png)
 
