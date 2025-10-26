@@ -1,6 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QLineEdit, QLabel, QMessageBox, QSpinBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QLineEdit, QLabel, QMessageBox, QFileDialog
 from sqlalchemy.orm import Session
 from pos_app.data.models import Customer
+from .customer_dialogs import CustomerFormDialog, CustomerDeleteDialog
 
 class CustomersPage(QWidget):
     def __init__(self, session_maker):
@@ -10,7 +11,6 @@ class CustomersPage(QWidget):
         layout = QVBoxLayout(self)
         search_row = QHBoxLayout(); self.search = QLineEdit(); self.search.setPlaceholderText("Search by name / email / phone"); self.btn_search = QPushButton("Search"); self.btn_clear = QPushButton("Clear"); search_row.addWidget(QLabel("Search:")); search_row.addWidget(self.search); search_row.addWidget(self.btn_search); search_row.addWidget(self.btn_clear); layout.addLayout(search_row)
         self.table = QTableWidget(0, 5); self.table.setHorizontalHeaderLabels(["ID", "Name", "Email", "Phone", "Loyalty"]); self.table.setEditTriggers(self.table.EditTrigger.NoEditTriggers); layout.addWidget(self.table)
-        form = QHBoxLayout(); self.name = QLineEdit(); self.name.setPlaceholderText("Full name"); self.email = QLineEdit(); self.email.setPlaceholderText("Email"); self.phone = QLineEdit(); self.phone.setPlaceholderText("Phone"); self.loyalty = QSpinBox(); self.loyalty.setRange(0, 10000); form.addWidget(QLabel("Name")); form.addWidget(self.name); form.addWidget(QLabel("Email")); form.addWidget(self.email); form.addWidget(QLabel("Phone")); form.addWidget(self.phone); form.addWidget(QLabel("Loyalty")); form.addWidget(self.loyalty); layout.addLayout(form)
         btns = QHBoxLayout(); self.btn_add = QPushButton("Add"); self.btn_edit = QPushButton("Edit Selected"); self.btn_delete = QPushButton("Delete Selected"); btns.addWidget(self.btn_add); btns.addWidget(self.btn_edit); btns.addWidget(self.btn_delete); layout.addLayout(btns)
         self.btn_add.clicked.connect(self.add_customer); self.btn_edit.clicked.connect(self.edit_selected); self.btn_delete.clicked.connect(self.delete_selected); self.btn_search.clicked.connect(self.refresh); self.btn_clear.clicked.connect(self._clear_search)
         self.refresh()
@@ -33,11 +33,11 @@ class CustomersPage(QWidget):
         if r < 0: return None
         return int(self.table.item(r, 0).text())
     def add_customer(self):
-        name = self.name.text().strip()
-        if not name: QMessageBox.warning(self, "Missing", "Name is required."); return
         try:
-            c = Customer(name=name, email=self.email.text().strip() or None, phone=self.phone.text().strip() or None, loyalty_points=int(self.loyalty.value()))
-            self.session.add(c); self.session.commit(); self.name.clear(); self.email.clear(); self.phone.clear(); self.loyalty.setValue(0); self.refresh()
+            dlg = CustomerFormDialog(self.session, None, self)
+            if not dlg.exec():
+                return
+            self.session.commit(); self.refresh()
         except Exception as e:
             self.session.rollback(); QMessageBox.critical(self, "Error", str(e))
     def edit_selected(self):
@@ -46,10 +46,9 @@ class CustomersPage(QWidget):
         try:
             c = self.session.get(Customer, cid)
             if not c: return
-            c.name = self.name.text().strip() or c.name
-            c.email = self.email.text().strip() or c.email
-            c.phone = self.phone.text().strip() or c.phone
-            c.loyalty_points = int(self.loyalty.value())
+            dlg = CustomerFormDialog(self.session, c, self)
+            if not dlg.exec():
+                return
             self.session.commit(); self.refresh()
         except Exception as e:
             self.session.rollback(); QMessageBox.critical(self, "Error", str(e))
@@ -59,6 +58,9 @@ class CustomersPage(QWidget):
         try:
             c = self.session.get(Customer, cid)
             if not c: return
+            dlg = CustomerDeleteDialog(c, self)
+            if not dlg.exec():
+                return
             self.session.delete(c); self.session.commit(); self.refresh()
         except Exception as e:
             self.session.rollback(); QMessageBox.critical(self, "Error", str(e))

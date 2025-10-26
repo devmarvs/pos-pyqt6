@@ -1,7 +1,8 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QLineEdit, QLabel, QMessageBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem, QPushButton, QLineEdit, QLabel, QMessageBox, QFileDialog
 from sqlalchemy.orm import Session
 from pos_app.data.models import Product
 from .product_edit_dialog import ProductEditDialog
+from .product_delete_dialog import ProductDeleteDialog
 
 class ProductsPage(QWidget):
     def __init__(self, session_maker):
@@ -55,6 +56,9 @@ class ProductsPage(QWidget):
         try:
             prod = self.session.get(Product, pid)
             if not prod: return
+            dlg = ProductDeleteDialog(prod, self)
+            if not dlg.exec():
+                return
             self.session.delete(prod); self.session.commit(); self.refresh()
         except Exception as e:
             self.session.rollback(); QMessageBox.critical(self, "Error", str(e))

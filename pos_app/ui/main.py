@@ -63,12 +63,16 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("POS App - PyQt6")
         engine = get_engine(); self.SessionLocal = get_session_maker(engine)
+        self.user = None
+        self._role_name = "Cashier"
         # login
         with self.SessionLocal() as s:
             dlg = LoginDialog(s, self)
             if not dlg.exec():
                 self.close(); return
-            self.user = dlg.user
+            logged_in_user = dlg.user
+            role_obj = getattr(logged_in_user, "role", None)
+            logged_in_role = role_obj.name if role_obj else "Cashier"
         self.stack = QStackedWidget()
         self.sales_page = SalesPage(self.SessionLocal)
         self.products_page = ProductsPage(self.SessionLocal)
@@ -87,6 +91,9 @@ class MainWindow(QMainWindow):
         act_change_pwd = QAction("Change Password", self)
         account.addAction(act_change_pwd)
         act_change_pwd.triggered.connect(self._change_password)
+        act_logout = QAction("Log Out", self)
+        account.addAction(act_logout)
+        act_logout.triggered.connect(self._logout)
         # Devices menu
         devices = self.menuBar().addMenu("&Devices")
         act_test_printer = QAction("Test Printer", self)
@@ -97,10 +104,7 @@ class MainWindow(QMainWindow):
         act_prn_settings.triggered.connect(self._open_printer_settings)
 
         # RBAC: only Admin/Manager can access management pages
-        role_name = self.user.role.name if getattr(self.user, 'role', None) else 'Cashier'
-        if role_name not in {"Admin", "Manager"}:
-            self.act_products.setEnabled(False)
-            self.act_customers.setEnabled(False)
+        self._set_logged_in_user(logged_in_user, logged_in_role)
         self.act_sales.triggered.connect(lambda: self.stack.setCurrentIndex(0))
         self.act_products.triggered.connect(lambda: (self.products_page.refresh(), self.stack.setCurrentIndex(1)))
         self.act_customers.triggered.connect(lambda: (self.customers_page.refresh(), self.stack.setCurrentIndex(2)))
@@ -119,6 +123,40 @@ class MainWindow(QMainWindow):
             self.sales_page.printer.test_page()
         except Exception as e:
             QMessageBox.warning(self, "Printer", f"Test failed: {e}")
+
+    def _logout(self):
+        confirm = QMessageBox.question(
+            self,
+            "Log Out",
+            "End the current session and return to the sign-in screen?"
+        )
+        if confirm != QMessageBox.StandardButton.Yes:
+            return
+        self.hide()
+        with self.SessionLocal() as s:
+            dlg = LoginDialog(s, self)
+            if not dlg.exec():
+                self.close()
+                return
+            new_user = dlg.user
+            role_obj = getattr(new_user, "role", None)
+            role_name = role_obj.name if role_obj else "Cashier"
+            self._set_logged_in_user(new_user, role_name)
+            self.stack.setCurrentIndex(0)
+            self.show()
+
+    def _set_logged_in_user(self, user, role_name=None):
+        self.user = user
+        if role_name is None:
+            role_obj = getattr(user, "role", None)
+            role_name = role_obj.name if role_obj else "Cashier"
+        self._role_name = role_name
+        self._apply_role_permissions()
+
+    def _apply_role_permissions(self):
+        is_manager = self._role_name in {"Admin", "Manager"}
+        self.act_products.setEnabled(is_manager)
+        self.act_customers.setEnabled(is_manager)
 
 def run_app():
     import sys
