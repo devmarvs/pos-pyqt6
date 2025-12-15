@@ -122,7 +122,11 @@ class ReportsPage(QWidget):
                 func.coalesce(func.sum(Sale.tax_total),0.0),
                 func.coalesce(func.sum(Sale.grand_total),0.0)
             )
-            .filter(Sale.datetime >= start, Sale.datetime < (end + timedelta(days=1)))
+            .filter(
+                Sale.status == "completed",
+                Sale.datetime >= start,
+                Sale.datetime < (end + timedelta(days=1)),
+            )
             .group_by(func.date(Sale.datetime))
             .order_by(func.date(Sale.datetime))
         )
@@ -140,7 +144,11 @@ class ReportsPage(QWidget):
              .join(Product, Product.id==SaleLine.product_id)
              .join(Category, Category.id==Product.category_id, isouter=True)
              .join(Sale, Sale.id==SaleLine.sale_id)
-             .filter(Sale.datetime >= start, Sale.datetime < (end + timedelta(days=1)))
+             .filter(
+                 Sale.status == "completed",
+                 Sale.datetime >= start,
+                 Sale.datetime < (end + timedelta(days=1)),
+             )
              .group_by(Category.name)
              .order_by(Category.name))
         return [(name or "Uncategorized", float(total)) for name, total in q]
@@ -149,7 +157,11 @@ class ReportsPage(QWidget):
         start, end = self._date_range()
         q = (self.session.query(User.username, func.coalesce(func.sum(Sale.grand_total),0.0))
              .join(Sale, Sale.cashier_id==User.id, isouter=True)
-             .filter(Sale.datetime >= start, Sale.datetime < (end + timedelta(days=1)))
+             .filter(
+                 Sale.status == "completed",
+                 Sale.datetime >= start,
+                 Sale.datetime < (end + timedelta(days=1)),
+             )
              .group_by(User.username)
              .order_by(User.username))
         return [(name or "Unassigned", float(total)) for name, total in q]
@@ -158,7 +170,11 @@ class ReportsPage(QWidget):
         start, end = self._date_range()
         q = (self.session.query(Payment.method, func.coalesce(func.sum(Payment.amount),0.0))
              .join(Sale, Sale.id==Payment.sale_id)
-             .filter(Sale.datetime >= start, Sale.datetime < (end + timedelta(days=1)))
+             .filter(
+                 Sale.status == "completed",
+                 Sale.datetime >= start,
+                 Sale.datetime < (end + timedelta(days=1)),
+             )
              .group_by(Payment.method)
              .order_by(Payment.method))
         return [(m or "Unknown", float(total)) for m, total in q]

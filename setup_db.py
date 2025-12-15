@@ -15,11 +15,33 @@ def seed_data(db: Session):
         store = InventoryLocation(name="Main Store"); db.add(store); db.flush()
         db.add_all([Inventory(product=cola, location=store, qty_on_hand=50, reorder_point=10),
                     Inventory(product=water, location=store, qty_on_hand=80, reorder_point=20)])
-    if not db.query(Role).first():
-        admin = Role(name="Admin"); manager = Role(name="Manager"); cashier = Role(name="Cashier")
-        db.add_all([admin, manager, cashier]); db.flush()
-        db.flush()
-        db.add(User(username="admin", password_hash="changeme", role_id=admin.id, active=True))
+    # Demo RBAC users
+    roles_by_name = {r.name: r for r in db.query(Role).all()}
+    for role_name in ("Admin", "Manager", "Cashier"):
+        if role_name not in roles_by_name:
+            role = Role(name=role_name)
+            db.add(role)
+            db.flush()
+            roles_by_name[role_name] = role
+
+    default_users = [
+        ("admin", "Admin"),
+        ("manager", "Manager"),
+        ("cashier", "Cashier"),
+    ]
+    for username, role_name in default_users:
+        existing = db.query(User).filter(User.username == username).first()
+        if existing is not None:
+            continue
+        role = roles_by_name[role_name]
+        db.add(
+            User(
+                username=username,
+                password_hash=hash_password("changeme"),
+                role_id=role.id,
+                active=True,
+            )
+        )
     db.commit()
 
 def main():

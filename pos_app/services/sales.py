@@ -6,16 +6,34 @@ class CompleteSaleService:
     def __init__(self, db: Session):
         self.db = db
 
-    def add_item(self, sale: Sale, barcode: str, qty: float = 1):
-        product = self.db.query(Product).filter(Product.barcode == barcode, Product.active == True).first()
+    def add_item(self, sale: Sale, barcode: str, qty: float = 1) -> SaleLine:
+        product = (
+            self.db.query(Product)
+            .filter(Product.barcode == barcode, Product.active.is_(True))
+            .first()
+        )
         if not product:
             raise ValueError("Item not found")
-        line_total = float(qty) * float(product.price)
-        line = SaleLine(sale=sale, product_id=product.id, qty=qty,
-                        unit_price=float(product.price), line_total=line_total, tax_rate=product.tax_rate)
-        sale.lines.append(line)
+        if qty <= 0:
+            raise ValueError("Quantity must be greater than 0")
+
+        unit_price = float(product.price)
+        line_total = float(qty) * unit_price
+        line = SaleLine(
+            sale=sale,
+            product=product,
+            qty=qty,
+            unit_price=unit_price,
+            line_total=line_total,
+            tax_rate=product.tax_rate,
+        )
+        self.db.add(line)
+        self.db.flush()
+        return line
 
     def finalize(self, sale: Sale, payment_amount: float, payment_method: str = "cash"):
+        if not sale.lines:
+            raise ValueError("Cannot finalize an empty sale")
         subtotal = sum(l.qty * l.unit_price for l in sale.lines)
         tax_total = 0.0
         for l in sale.lines:

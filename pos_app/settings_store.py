@@ -1,6 +1,6 @@
-
 import json
 from pathlib import Path
+import tempfile
 
 _SETTINGS_PATH = Path(__file__).resolve().parents[1] / "app_settings.json"
 
@@ -17,12 +17,14 @@ DEFAULTS = {
 }
 
 def _deepmerge(base: dict, extra: dict) -> dict:
+    if not isinstance(extra, dict):
+        return dict(base)
     out = dict(base)
     for k, v in extra.items():
         if isinstance(v, dict) and isinstance(out.get(k), dict):
             out[k] = _deepmerge(out[k], v)
         else:
-            out[k] = v if k in extra else out.get(k)
+            out[k] = v
     return out
 
 def load_settings() -> dict:
@@ -34,7 +36,19 @@ def load_settings() -> dict:
 
 def save_settings(data: dict):
     try:
-        Path(_SETTINGS_PATH).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        Path(_SETTINGS_PATH).parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(data, indent=2)
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            delete=False,
+            dir=str(Path(_SETTINGS_PATH).parent),
+            prefix=f".{Path(_SETTINGS_PATH).name}.",
+            suffix=".tmp",
+        ) as tmp:
+            tmp.write(payload)
+            tmp_path = Path(tmp.name)
+        tmp_path.replace(_SETTINGS_PATH)
     except OSError as exc:
         raise RuntimeError(f"Unable to write settings file '{_SETTINGS_PATH}': {exc}") from exc
 

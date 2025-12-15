@@ -60,8 +60,8 @@ class Sale(Base):
     tax_total: Mapped[float] = mapped_column(Float, default=0.0)
     discount_total: Mapped[float] = mapped_column(Float, default=0.0)
     grand_total: Mapped[float] = mapped_column(Float, default=0.0)
-    status: Mapped[str] = mapped_column(String(32), default="completed")
-    payment_status: Mapped[str] = mapped_column(String(32), default="paid")
+    status: Mapped[str] = mapped_column(String(32), default="open")
+    payment_status: Mapped[str] = mapped_column(String(32), default="unpaid")
     lines = relationship("SaleLine", cascade="all, delete-orphan")
     payments = relationship("Payment", cascade="all, delete-orphan")
 

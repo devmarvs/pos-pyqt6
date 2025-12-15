@@ -17,7 +17,11 @@ class LoginDialog(QDialog):
         ok.clicked.connect(self.try_login); cancel.clicked.connect(self.reject)
         self.user = None
     def try_login(self):
-        u = self.session.query(User).filter(User.username == self.username.text().strip(), User.active == True).first()
+        u = (
+            self.session.query(User)
+            .filter(User.username == self.username.text().strip(), User.active.is_(True))
+            .first()
+        )
         if not u or not verify_password(self.password.text(), u.password_hash):
             QMessageBox.warning(self, "Invalid", "Invalid username or password."); return
         self.user = u; self.accept()
